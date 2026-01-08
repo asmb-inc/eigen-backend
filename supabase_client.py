@@ -1,0 +1,6 @@
+from supabase import create_client
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+supabase = create_client('https://orojpltfjcypnhjvjyjg.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yb2pwbHRmamN5cG5oanZqeWpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1MDUzMDAsImV4cCI6MjA4MDA4MTMwMH0.NLj4ooLjEg_f7qAfWcXsiui54rCPtnxnN5XtY-mXiqU')
