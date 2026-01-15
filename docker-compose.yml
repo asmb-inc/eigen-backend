@@ -8,5 +8,3 @@ services:
     volumes:
       - .:/app
       - ./requirements.txt:/app/requirements.txt
-
-    

@@ -1,9 +1,13 @@
 from fastapi import FastAPI
+from routes import auth_routes
+from routes import questions_routes
+from routes import contests_routes
 
 app = FastAPI()
 
 
-@app.get('/test')
-def hello():
-    return 'welcome to battlon backend'
- 
+app.include_router(auth_routes.router)
+app.include_router(questions_routes.router)
+app.include_router(contests_routes.router)
+
+
