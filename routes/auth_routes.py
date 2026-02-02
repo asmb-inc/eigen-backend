@@ -8,7 +8,7 @@ router = APIRouter(prefix = '/auth', tags = ['auth'])
 
 @router.get('/profile')
 def gerProfile(user = Depends(get_current_user)):
-     print(user['profile_id'])
+     # print(user['profile_id'])
      response = (
         supabase
         .table("profiles")

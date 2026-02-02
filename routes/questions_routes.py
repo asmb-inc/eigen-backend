@@ -13,7 +13,7 @@ router = APIRouter(prefix = '/questions', tags = ['auth'])
 def getDailyQuestion(user=Depends(get_current_user)):
     try:
         response = supabase.table('daily_questions').select('*').order('created_at', desc=True).limit(1).execute()    
-        if response.data and len(response.data) > 0:
+        if response.data:
             daily_q = response.data[0]
             question_id = daily_q.get('question_id')
             questions = supabase.table('questions').select('*').eq('id', question_id).execute()
