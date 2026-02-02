@@ -22,6 +22,12 @@ def get_current_user(
 
         resp = supabase.table('profiles').select('*').eq('user_id', payload['sub']).execute()
 
+        if not resp.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile not found for the given user ID",
+            )
+
         return {
             "id": payload["sub"],          # Supabase user ID
             "email": payload.get("email"),
