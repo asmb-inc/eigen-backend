@@ -3,7 +3,7 @@ from schemas import GetOTPRequest
 from supabase_client import supabase 
 from dependencies import get_current_user
 from datetime import datetime, timezone, timedelta
-from schemas import PostAnswerRequest
+from schemas import PostAnswerRequest, GetQuestionByDateString
 from math import isclose
 from datetime import datetime, timezone
 router = APIRouter(prefix = '/questions', tags = ['auth'])
@@ -62,6 +62,10 @@ def getQuestionById(id: int, user = Depends(get_current_user)):
     if not question.data:
         raise HTTPException(status_code = 404, detail = "No question found")    
     return question.data[0]
+
+
+
+
 
 
 @router.post('/{id}/answer')
@@ -137,3 +141,31 @@ def postAnswerOfTheQuestion(
     }
 
 
+
+
+
+
+@router.post('/get-daily-question-by-datestring')
+def getDailyQuestionByDateString(request: GetQuestionByDateString, user=Depends(get_current_user)):
+    print("question is reaching here")
+ 
+    date_str = request.datestring
+    # build a timestamp range covering that day in UTC
+    start_ts = f"{date_str}T00:00:00Z"
+    end_ts = f"{date_str}T23:59:59Z"
+
+    resp = (
+        supabase
+        .table('daily_questions')
+        .select('question_id')
+        .gte('created_at', start_ts)
+        .lte('created_at', end_ts)
+        .limit(1)
+        .execute()
+    )
+
+    if resp.data and len(resp.data) > 0:
+        return {"question_id": resp.data[0].get('question_id')}
+    else:
+        raise HTTPException(status_code=404, detail="No entry for that date")
+ 
