@@ -25,6 +25,28 @@ def getDailyQuestion(user=Depends(get_current_user)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.get('/daily/{date}')
+def getDailyQuestionByDate(date: str, user=Depends(get_current_user)):
+    # date expected YYYY-MM-DD
+    try:
+        # build bounds
+        start = date + 'T00:00:00Z'
+        end = date + 'T23:59:59Z'
+        response = supabase.table('daily_questions').select('*').gte('created_at', start).lte('created_at', end).order('created_at', desc=True).limit(1).execute()
+        if response.data and len(response.data) > 0:
+            daily_q = response.data[0]
+            question_id = daily_q.get('question_id')
+            questions = supabase.table('questions').select('*').eq('id', question_id).execute()
+            if questions.data:
+                return questions.data[0]
+        raise HTTPException(status_code=404, detail="No daily question found for that date")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
 
 
