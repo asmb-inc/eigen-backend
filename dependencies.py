@@ -21,19 +21,14 @@ def get_current_user(
         )
 
         resp = supabase.table('profiles').select('*').eq('user_id', payload['sub']).execute()
-
-        if not resp.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Profile not found for the given user ID",
-            )
-
+        # profile will be unavailabe only for the firts time route 
+        # that route is the profile creation route itself
         return {
             "id": payload["sub"],          # Supabase user ID
             "email": payload.get("email"),
             # "display_name": payload.get('full_name'),
             "role": payload.get("role"),
-            'profile_id': resp.data[0]['id']
+            'profile_id': (resp.data[0]['id']) if (resp.data) else (-1)
         }
 
     except jwt.ExpiredSignatureError:

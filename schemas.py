@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 from typing import List, Optional
+
+
+
 class GetOTPRequest(BaseModel):
     number: str
     
@@ -7,3 +10,8 @@ class GetOTPRequest(BaseModel):
     
 class PostAnswerRequest(BaseModel):
     answers: List[Optional[float]]
+    
+    
+    
+class GetQuestionByDateString(BaseModel):
+    datestring: str

@@ -3,7 +3,7 @@ from schemas import GetOTPRequest
 from supabase_client import supabase 
 from dependencies import get_current_user
 from datetime import datetime, timezone, timedelta
-from schemas import PostAnswerRequest
+from schemas import PostAnswerRequest, GetQuestionByDateString
 from math import isclose
 from datetime import datetime, timezone
 router = APIRouter(prefix = '/questions', tags = ['auth'])
@@ -64,6 +64,10 @@ def getQuestionById(id: int, user = Depends(get_current_user)):
     return question.data[0]
 
 
+
+
+
+
 @router.post('/{id}/answer')
 def postAnswerOfTheQuestion(
     id: int,
@@ -76,7 +80,7 @@ def postAnswerOfTheQuestion(
     resp = (
         supabase
         .table("answers")
-        .select("blank_order, value")
+        .select("id","blank_order, value")
         .eq("question_id", id)
         .order("blank_order")
         .execute()
@@ -105,17 +109,19 @@ def postAnswerOfTheQuestion(
                 correct_value,
                 rel_tol=1e-3,
                 abs_tol=1e-3,
-            )
-
+            ) 
+        
         results.append({
             "blank_order": correct["blank_order"],
             "submitted": user_answer,
             "is_correct": is_correct,
+            "answer_id": correct['id']
         })
 
         if not is_correct:
             all_correct = False
-
+    
+    
     # check if all correct then is it a daily question if so then update the streak
     if (all_correct):
         print("WE ARE HITTING ALL CORRECT")
@@ -130,6 +136,19 @@ def postAnswerOfTheQuestion(
            except:
                pass
     
+    print("PRINTING THE RESULTS")
+    submissions = []
+    for result in results: 
+        submissions.append({'question_id': id, 'answer_id': result['answer_id'], 'profile_id': user['profile_id'], 'is_correct': result['is_correct'], 'answer_value': result['submitted']})
+    try:
+        resp = (
+        supabase.table('submissions')
+                .insert(submissions)
+                .execute()
+        )
+    except:
+        raise HTTPException(status_code = 400, detail = "Sorry we have troube submitting the answer in the moment")
+    print(resp.data)
     return {
         "question_id": id,
         "all_correct": all_correct,
@@ -137,3 +156,31 @@ def postAnswerOfTheQuestion(
     }
 
 
+
+
+
+
+@router.post('/get-daily-question-by-datestring')
+def getDailyQuestionByDateString(request: GetQuestionByDateString, user=Depends(get_current_user)):
+    print("question is reaching here")
+ 
+    date_str = request.datestring
+    # build a timestamp range covering that day in UTC
+    start_ts = f"{date_str}T00:00:00Z"
+    end_ts = f"{date_str}T23:59:59Z"
+
+    resp = (
+        supabase
+        .table('daily_questions')
+        .select('question_id')
+        .gte('created_at', start_ts)
+        .lte('created_at', end_ts)
+        .limit(1)
+        .execute()
+    )
+
+    if resp.data and len(resp.data) > 0:
+        return {"question_id": resp.data[0].get('question_id')}
+    else:
+        raise HTTPException(status_code=404, detail="No entry for that date")
+ 
