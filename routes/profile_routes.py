@@ -19,7 +19,5 @@ def getProfileStreak(user = Depends(get_current_user)):
     return current_streak
     
     
-    
-
 # STREAK WILL BE CALCULATED FROM 
 # SUBMISSIONS
