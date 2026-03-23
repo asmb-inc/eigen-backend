@@ -58,7 +58,7 @@ def postAnswerOfTheQuestion(
     resp = (
         supabase
         .table("answers")
-        .select("blank_order, value")
+        .select("id","blank_order, value")
         .eq("question_id", id)
         .order("blank_order")
         .execute()
@@ -87,17 +87,19 @@ def postAnswerOfTheQuestion(
                 correct_value,
                 rel_tol=1e-3,
                 abs_tol=1e-3,
-            )
-
+            ) 
+        
         results.append({
             "blank_order": correct["blank_order"],
             "submitted": user_answer,
             "is_correct": is_correct,
+            "answer_id": correct['id']
         })
 
         if not is_correct:
             all_correct = False
-
+    
+    
     # check if all correct then is it a daily question if so then update the streak
     if (all_correct):
         print("WE ARE HITTING ALL CORRECT")
@@ -112,6 +114,19 @@ def postAnswerOfTheQuestion(
            except:
                pass
     
+    print("PRINTING THE RESULTS")
+    submissions = []
+    for result in results: 
+        submissions.append({'question_id': id, 'answer_id': result['answer_id'], 'profile_id': user['profile_id'], 'is_correct': result['is_correct'], 'answer_value': result['submitted']})
+    try:
+        resp = (
+        supabase.table('submissions')
+                .insert(submissions)
+                .execute()
+        )
+    except:
+        raise HTTPException(status_code = 400, detail = "Sorry we have troube submitting the answer in the moment")
+    print(resp.data)
     return {
         "question_id": id,
         "all_correct": all_correct,
