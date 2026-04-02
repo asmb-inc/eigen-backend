@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 from schemas import PostAnswerRequest, GetQuestionByDateString
 from math import isclose
 from datetime import datetime, timezone
+import calendar
 router = APIRouter(prefix = '/questions', tags = ['auth'])
  
 
@@ -67,16 +68,16 @@ def getQuestionById(id: int, user = Depends(get_current_user)):
 
 
 
-
 @router.post('/{id}/answer')
 def postAnswerOfTheQuestion(
     id: int,
     request: PostAnswerRequest,
     user=Depends(get_current_user),
 ):
+    
     answers = request.answers
-    print(answers)
-    print(id)
+    # print(answers)
+    # print(id)
     resp = (
         supabase
         .table("answers")
@@ -87,8 +88,9 @@ def postAnswerOfTheQuestion(
     )
 
     correct_answers = resp.data
-    print(correct_answers)
+    print("REACHING HERE 1")
     if len(answers) != len(correct_answers):
+        print("CONDITION HITTING")
         raise HTTPException(
             status_code=400,
             detail="Number of answers does not match number of blanks",
@@ -96,6 +98,7 @@ def postAnswerOfTheQuestion(
 
     results = []
     all_correct = True
+    print("REACHING HERE 2")
 
     for user_answer, correct in zip(answers, correct_answers):
         correct_value = float(correct["value"])
@@ -119,9 +122,9 @@ def postAnswerOfTheQuestion(
         })
 
         if not is_correct:
-            all_correct = False
-    
-    
+            all_correct = False 
+    print("REACHING HERE 3")
+
     # check if all correct then is it a daily question if so then update the streak
     if (all_correct):
         print("WE ARE HITTING ALL CORRECT")
@@ -133,22 +136,47 @@ def postAnswerOfTheQuestion(
            today = datetime.now(timezone.utc).date().isoformat()
            try:
                supabase.table('streak').insert({'profile_id': user['profile_id'], 'created_at_date': today}).execute()
-           except:
-               pass
+           except Exception as e:
+                print(f"Error submitting answer: {e}")
+                raise HTTPException(status_code = 400, detail = "Sorry we have trouble submitting the answer in the moment")
+    
     
     print("PRINTING THE RESULTS")
     submissions = []
     for result in results: 
-        submissions.append({'question_id': id, 'answer_id': result['answer_id'], 'profile_id': user['profile_id'], 'is_correct': result['is_correct'], 'answer_value': result['submitted']})
+       if(result['submitted'] != None):
+            submissions.append({'question_id': id, 'answer_id': result['answer_id'], 'profile_id': user['profile_id'], 'is_correct': result['is_correct'], 'answer_value': result['submitted']})
+    
     try:
         resp = (
         supabase.table('submissions')
-                .insert(submissions)
+                .upsert(submissions, on_conflict='profile_id,question_id,answer_id')
                 .execute()
         )
-    except:
-        raise HTTPException(status_code = 400, detail = "Sorry we have troube submitting the answer in the moment")
+    except Exception as e:
+        print(f"Error submitting answer: {e}")
+        raise HTTPException(status_code = 400, detail = "Sorry we have trouble submitting the answer in the moment")
     print(resp.data)
+    print("we are progressing till here")
+    # NOW WE ARE STORING JUST EXTENDING THIS SUBMISSIONS API NEELESSLY, THE CORRECT APPROACH IS USING ASYNC WORKER WITH KAFKA  
+    try:
+       
+                
+        res = supabase.rpc(
+        "upsert_submission_status",
+        {
+            "q_id": id,
+            "p_id": user['profile_id']
+        }
+        ).execute()
+        
+        print
+        
+    except Exception as e:
+        print(f"Error submitting answer: {e}")
+        raise HTTPException(status_code = 400, detail = "error in updating submission_answers table")
+    
+    
     return {
         "question_id": id,
         "all_correct": all_correct,
@@ -157,7 +185,7 @@ def postAnswerOfTheQuestion(
 
 
 
-
+         
 
 
 @router.post('/get-daily-question-by-datestring')
@@ -183,4 +211,85 @@ def getDailyQuestionByDateString(request: GetQuestionByDateString, user=Depends(
         return {"question_id": resp.data[0].get('question_id')}
     else:
         raise HTTPException(status_code=404, detail="No entry for that date")
+
+
+
+
+# used in the below route
+def get_month_range(year_month: str):
+    year, month = map(int, year_month.split("-"))
+    start = datetime(year, month, 1, 0, 0, 0)
+    last_day = calendar.monthrange(year, month)[1]
+    end = datetime(year, month, last_day, 23, 59, 59)
+    return start, end
  
+ 
+#  2026-02
+@router.get('/month-status/{month}')
+def getMonthStatus(month: str,user = Depends(get_current_user)):
+    # need to fetch question_ids
+    start, end  = get_month_range(month)
+    try:
+         
+        resp = (
+            supabase 
+            .table('daily_questions')
+            .select('question_id', 'created_at')
+            .gte('created_at', start)
+            .lte('created_at', end)
+            .execute()
+        )
+        
+        questions = resp.data
+        question_ids = []
+        for question in questions:
+            question_ids.append(question['question_id'])
+        
+        
+        
+
+        print("THIS IS SUBMISSIONS")
+        print(resp.data)
+        
+        # Query submissions_answers table
+        submissions_resp = (
+            supabase
+            .table('submissions_answers')
+            .select('*')
+            .in_('question_id', question_ids)
+            .eq('profile_id', user['profile_id'])
+            .execute()
+        )
+        
+        # Create dict for question_id to created_at
+        question_created_at = {q['question_id']: q['created_at'] for q in questions}
+        print(submissions_resp.data)
+        # Filter rows where updated_at is on the same day as the question's created_at (basically we are saying if question not solved AT the same day 
+        # it was created a as a daily question for the calender mark it as UNSOLVED)
+        filtered_submissions = [
+            submission for submission in submissions_resp.data
+            if submission['updated_at'][:10] == question_created_at.get(submission['question_id'])[:10]
+        ]
+        print("THIS IS FILTERED SUBMISSIONS")
+        print(filtered_submissions)
+        
+        # Get year and month
+        year, month_num = map(int, month.split("-"))
+        last_day = calendar.monthrange(year, month_num)[1]
+        
+        # Initialize all days as unsolved
+        month_status = {f"{day:02d}": "unsolved" for day in range(1, last_day + 1)}
+        
+        # Update status for days with submissions
+        for submission in filtered_submissions:
+            day = submission['updated_at'][:10].split('-')[2]  # Extract DD from YYYY-MM-DD
+            month_status[day] = submission['status']
+        
+        # Return list of day-status pairs
+        response = [{"day": day, "status": status} for day, status in month_status.items()]
+        print(response)
+        return response
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code = 400, detail = "cannot load calendar ")
+    
