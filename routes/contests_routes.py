@@ -13,7 +13,7 @@ router = APIRouter(prefix='/contests', tags=['contests'])
 
 
 @router.get('')
-def getContests(user = Depends(get_current_user)):
+def getContests():
     try:
         resp = supabase.table('contests').select('*').execute()
         contests = resp.data
@@ -21,7 +21,7 @@ def getContests(user = Depends(get_current_user)):
         return contests
     except Exception as e:
         print(e)
-        raise HTTPException(status_code = 400, detail = "Sorry cannot get questions")
+        raise HTTPException(status_code = 400, detail = "Sorry cannot get contests")
 
 @router.get('/{id}')
 def getContest(id: int, user = Depends(get_current_user)):
@@ -41,7 +41,7 @@ def getContest(id: int, user = Depends(get_current_user)):
 def beginContest(id: int, user = Depends(get_current_user)):
     try:
         resp = (supabase.table('contest_submissions')
-        .insert({'profile_id': user['profile_id'], 'contest_id': id}).execute())
+        .insert({'profile_id': user['id'], 'contest_id': id}).execute())
         print(resp.data)
         resp = supabase.rpc("increment_column", {"row_id": id}).execute()
         return "ok"
@@ -59,7 +59,6 @@ def beginContest(id: int, user = Depends(get_current_user)):
         print(e)
         raise HTTPException(status_code=400, detail="Sorry cannot questions of  contest")
     
-
 @router.get('/{id}/can-enter')
 def canEnterContest(id: int, user=Depends(get_current_user)):
     try:
@@ -68,28 +67,33 @@ def canEnterContest(id: int, user=Depends(get_current_user)):
             .table("contest_submissions")
             .select("did_submit")
             .eq("contest_id", id)
-            .eq("profile_id", user["profile_id"])
-            .maybe_single()
+            .eq("profile_id", user["id"])
+            .limit(1)
             .execute()
         )
 
         data = resp.data
 
-        # ❌ No entry found → user hasn't entered
-        if data is None:
+        print(data)
+
+        # No rows
+        if not data:
             return {"status": "not_entered"}
 
-        # ✅ Entry exists
-        if data["did_submit"]:
+        # First row
+        submission = data[0]
+
+        if submission["did_submit"]:
             return {"status": "is_submitted"}
-        else:
-            return {"status": "ongoing"}
+
+        return {"status": "ongoing"}
 
     except Exception as e:
-        print(e)
+        print("ERROR:", e)
+
         raise HTTPException(
             status_code=400,
-            detail="Sorry cannot fetch contest status"
+            detail=str(e)
         )
         
 
@@ -183,7 +187,7 @@ def submitContest(id: int, submission: SubmitContestRequest, user=Depends(get_cu
     try:
         resp = supabase.table("contest_submissions") \
                     .select("created_at") \
-                    .eq("profile_id", user['profile_id']) \
+                    .eq("profile_id", user['id']) \
                     .eq("contest_id", id) \
                     .single() \
                     .execute()
@@ -200,7 +204,7 @@ def submitContest(id: int, submission: SubmitContestRequest, user=Depends(get_cu
                 "did_submit": True,
                 "time": duration
             }) \
-            .eq("profile_id", user['profile_id']) \
+            .eq("profile_id", user['id']) \
             .eq("contest_id", id) \
             .execute()
     except Exception as e:
@@ -211,4 +215,4 @@ def submitContest(id: int, submission: SubmitContestRequest, user=Depends(get_cu
     
     return {
         "score": total_score
-    }
+    }  

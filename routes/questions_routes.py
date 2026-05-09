@@ -11,7 +11,7 @@ router = APIRouter(prefix = '/questions', tags = ['auth'])
  
 
 @router.get('/daily')
-def getDailyQuestion(user=Depends(get_current_user)):
+def getDailyQuestion():
     try:
         response = supabase.table('daily_questions').select('*').order('created_at', desc=True).limit(1).execute()    
         if response.data:
@@ -52,13 +52,13 @@ def getDailyQuestionByDate(date: str, user=Depends(get_current_user)):
 
 
 @router.get('/all')
-def getAllQuestions(user=Depends(get_current_user)):
+def getAllQuestions():
     questions = supabase.table('questions').select('*').execute()
     return questions.data
 
 
 @router.get('/{id}')
-def getQuestionById(id: int, user = Depends(get_current_user)):
+def getQuestionById(id: int):
     question = supabase.table('questions').select('*').eq('id', id).limit(1).execute()
     if not question.data:
         raise HTTPException(status_code = 404, detail = "No question found")    
@@ -135,7 +135,7 @@ def postAnswerOfTheQuestion(
            print("WE ARE ALSO HITTING DAILY QUESTION")
            today = datetime.now(timezone.utc).date().isoformat()
            try:
-               supabase.table('streak').insert({'profile_id': user['profile_id'], 'created_at_date': today}).execute()
+               supabase.table('streak').insert({'profile_id': user['id'], 'created_at_date': today}).execute()
            except Exception as e:
                 print(f"Error submitting answer: {e}")
                 raise HTTPException(status_code = 400, detail = "Sorry we have trouble submitting the answer in the moment")
@@ -145,7 +145,7 @@ def postAnswerOfTheQuestion(
     submissions = []
     for result in results: 
        if(result['submitted'] != None):
-            submissions.append({'question_id': id, 'answer_id': result['answer_id'], 'profile_id': user['profile_id'], 'is_correct': result['is_correct'], 'answer_value': result['submitted']})
+            submissions.append({'question_id': id, 'answer_id': result['answer_id'], 'profile_id': user['id'], 'is_correct': result['is_correct'], 'answer_value': result['submitted']})
     
     try:
         resp = (
@@ -163,14 +163,13 @@ def postAnswerOfTheQuestion(
        
                 
         res = supabase.rpc(
-        "upsert_submission_status",
+        "upsert_submission_status_new",
         {
             "q_id": id,
-            "p_id": user['profile_id']
+            "p_id": user['id']
         }
         ).execute()
         
-        print
         
     except Exception as e:
         print(f"Error submitting answer: {e}")
@@ -257,7 +256,7 @@ def getMonthStatus(month: str,user = Depends(get_current_user)):
             .table('submissions_answers')
             .select('*')
             .in_('question_id', question_ids)
-            .eq('profile_id', user['profile_id'])
+            .eq('profile_id', user['id'])
             .execute()
         )
         

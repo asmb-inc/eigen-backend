@@ -17,3 +17,6 @@ class SubmitContestRequest(BaseModel):
     
 class GetQuestionByDateString(BaseModel):
     datestring: str
+
+class UpdateSchoolRequest(BaseModel):
+    school: str
