@@ -51,11 +51,48 @@ def getDailyQuestionByDate(date: str, user=Depends(get_current_user)):
     
 
 
+
 @router.get('/all')
 def getAllQuestions():
-    questions = supabase.table('questions').select('*').execute()
-    return questions.data
+    questions_response = supabase.table('questions').select('*').execute()
+    questions = questions_response.data
 
+    filtered_questions = []
+
+    for question in questions:
+        contest_id = question.get("contest_id")
+
+        # No contest -> include
+        if contest_id is None:
+            filtered_questions.append(question)
+            continue
+
+        # Fetch contest
+        contest_response = (
+            supabase.table('contests')
+            .select('end_time')
+            .eq('id', contest_id)
+            .single()
+            .execute()
+        )
+
+        contest = contest_response.data
+
+        if not contest:
+            continue
+
+        end_time = contest.get("end_time")
+
+        # Parse datetime
+        end_time_dt = datetime.fromisoformat(
+            end_time.replace("Z", "+00:00")
+        )
+
+        # Compare with UTC now
+        if end_time_dt.timestamp() < datetime.utcnow().timestamp():
+            filtered_questions.append(question)
+
+    return filtered_questions
 
 @router.get('/{id}')
 def getQuestionById(id: int):
@@ -130,7 +167,7 @@ def postAnswerOfTheQuestion(
         print("WE ARE HITTING ALL CORRECT")
         resp = supabase.table('daily_questions').select('*').order('created_at', desc = True).limit(1).execute()
         dailyquestion = resp.data[0]
-        # if only the question solved by the user is a daily question
+    # if only the question solved by the user is a daily question
         if (dailyquestion['question_id'] == id):
            print("WE ARE ALSO HITTING DAILY QUESTION")
            today = datetime.now(timezone.utc).date().isoformat()
