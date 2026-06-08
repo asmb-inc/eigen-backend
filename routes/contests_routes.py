@@ -161,12 +161,11 @@ def submitContest(id: int, submission: SubmitContestRequest, user=Depends(get_cu
         print("Correct:", correct_answers)
 
         for idx, correct_value in correct_answers.items():
-            # ✅ FIX: convert 1-based index → 0-based
             user_val = user_answers[idx - 1] if (idx - 1) < len(user_answers) else None
 
             print(f"Comparing idx {idx}: user={user_val}, correct={correct_value}")
 
-            # ✅ FIX: handle type mismatch
+          
             if (not isclose(
                 user_val,
                 correct_value,
@@ -191,6 +190,13 @@ def submitContest(id: int, submission: SubmitContestRequest, user=Depends(get_cu
                     .eq("contest_id", id) \
                     .single() \
                     .execute()
+                    
+                    
+                    
+                    
+                    
+                    
+                    
 
         created_at = datetime.fromisoformat(resp.data["created_at"].replace("Z", "+00:00"))
         now = datetime.now(timezone.utc)
