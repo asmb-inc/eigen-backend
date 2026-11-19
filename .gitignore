@@ -3,3 +3,10 @@ myenv/
 env/
 __pycache__/
 .env
+
+# question pipeline working data
+question_pipeline/data/questions.json
+question_pipeline/data/published.json
+question_pipeline/data/references/
+question_pipeline/data/report.html
+.venv*/

@@ -1,0 +1,10 @@
+{
+  "title": "Heat and work",
+  "body": "A gas in a cylinder absorbs \\( 800\\ \\mathrm{J} \\) of heat while a piston lets it do \\( 350\\ \\mathrm{J} \\) of work on its surroundings. The change in the internal energy of the gas is \\( \\underline{\\hspace{2cm}} \\ \\mathrm{J} \\).",
+  "blanks_count": 1,
+  "answers": [
+    { "blank_order": 1, "value": 450 }
+  ],
+  "topics": "thermodynamics, physics",
+  "difficulty": 500
+}
